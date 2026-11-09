@@ -60,3 +60,11 @@ Manual check: add a harmless app, start a one-minute session, open it, verify th
 App monitoring uses Apple’s [NSWorkspace API](https://developer.apple.com/documentation/appkit/nsworkspace).
 
 The app includes a shield-and-gavel icon for Finder, the Dock, and Spotlight. The build script generates all icon sizes from `scripts/make-icon.swift`. If Spotlight keeps an old icon, quit the app and reopen the rebuilt copy; moving that copy to Applications also makes it easier to find.
+
+## Quote of the Day
+
+Choose **Quote of the Day** in the left sidebar for a short movie quote, its film and year, and a link to its checked source. The built-in library contains 93 distinct excerpts, so the same quote returns only after 93 days (longer than three calendar months). It works offline; opening a source link needs internet access. It rotates a curated library rather than searching the web every day.
+
+The quote follows the Gregorian date in your Mac’s current time zone. Reopening the app on the same date keeps the same quote. The open page checks the date every 30 seconds, so the new quote appears within 30 seconds after midnight, or when the app wakes. Changing time zones or setting the clock backward can revisit an earlier date’s quote. Browsing this section does not pause focus protection.
+
+The catalog and source links are in `Sources/Guilty/MovieQuoteCatalog.swift`. Keep the catalog order stable when editing it, because that order defines the rotation. Tests cover catalog uniqueness, a full cycle with a leap day, local midnight, and daylight-saving changes.

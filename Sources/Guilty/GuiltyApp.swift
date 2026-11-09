@@ -56,6 +56,7 @@ private let accent = Color(red: 0.77, green: 0.95, blue: 0.39)
 
 struct ContentView: View {
     @ObservedObject var model: FocusModel
+    @State private var showingQuote = false
     @State private var minutes = 25
     @State private var domain = ""
     @State private var inputError = ""
@@ -64,6 +65,9 @@ struct ContentView: View {
             paper.ignoresSafeArea()
             HStack(spacing: 0) {
                 sidebar
+                if showingQuote {
+                    DailyQuoteView { showingQuote = false }
+                } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 25) {
                         HStack {
@@ -86,6 +90,7 @@ struct ContentView: View {
                         Text("Keep Guilty open for protection. Supported browsers: Safari, Chrome, Edge, Brave, Vivaldi and Opera. Other browsers can be added to blocked apps.")
                             .font(.system(size: 11)).foregroundStyle(ink.opacity(0.6))
                     }.padding(32)
+                }
                 }
             }
             if let accusation = model.accusation {
@@ -117,8 +122,10 @@ struct ContentView: View {
             }
             Text("A LITTLE DISCIPLINE.\nA LOT OF POSSIBILITY.")
                 .font(.system(size: 9, weight: .medium, design: .monospaced)).tracking(1).lineSpacing(5).fixedSize(horizontal: false, vertical: true).opacity(0.5)
-            Label("Focus chamber", systemImage: "timer").font(.system(size: 12, weight: .semibold))
-                .padding(12).frame(maxWidth: .infinity, alignment: .leading).background(accent.opacity(0.13)).clipShape(RoundedRectangle(cornerRadius: 8))
+            VStack(spacing: 8) {
+                sidebarButton("Focus chamber", icon: "timer", selected: !showingQuote) { showingQuote = false }
+                sidebarButton("Quote of the Day", icon: "quote.bubble", selected: showingQuote) { showingQuote = true }
+            }
             Spacer()
             Image(systemName: "hourglass").font(.system(size: 42, weight: .ultraLight)).foregroundStyle(accent)
             Text("Your distractions\ncan take a number.")
@@ -128,6 +135,15 @@ struct ContentView: View {
             Label(model.hasSession ? "COURT IN SESSION" : "READY WHEN YOU ARE", systemImage: "circle.fill")
                 .font(.system(size: 9, weight: .medium, design: .monospaced)).foregroundStyle(accent)
         }.padding(24).frame(width: 210).frame(maxHeight: .infinity).background(ink).foregroundStyle(paper)
+    }
+    private func sidebarButton(_ title: String, icon: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon).font(.system(size: 12, weight: .semibold))
+                .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                .background(selected ? accent.opacity(0.13) : .clear)
+                .foregroundStyle(selected ? accent : paper.opacity(0.7))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        }.buttonStyle(.plain).accessibilityAddTraits(selected ? .isSelected : [])
     }
     private var timerCard: some View {
         VStack(spacing: 18) {
