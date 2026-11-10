@@ -15,6 +15,8 @@ struct FocusState: Codable {
     ]
     // Keep the saved key "domains" so existing blocklists still load.
     var domains = ["youtube", "youtu.be", "twitch", "netflix", "disneyplus", "tiktok", "instagram", "reddit", "facebook", "x.com", "twitter", "steampowered", "roblox", "poki", "crazygames", "fandom"]
+    var breakSession: BreakSession?
+    var breakReminder: Bool?
     var keywordRulesVersion: Int?
     var deadline: Date?
     var duration: TimeInterval = 25 * 60
@@ -45,6 +47,20 @@ struct FocusState: Codable {
         guard hasSession else { return }
         if paused { pausedRemaining = duration } else { deadline = now.addingTimeInterval(duration) }
     }
+    mutating func startBreak(minutes: Int, now: Date = Date()) {
+        if let deadline, deadline <= now { finish() }
+        pause(now: now)
+        breakSession = BreakSession(minutes: minutes, now: now)
+        breakReminder = false
+    }
+    @discardableResult
+    mutating func completeBreakIfNeeded(now: Date = Date()) -> Bool {
+        guard let session = breakSession, session.pausedRemaining == nil, session.timeLeft(now: now) <= 0 else { return false }
+        breakSession = nil
+        breakReminder = true
+        return true
+    }
+    mutating func cancelBreak() { breakSession = nil; breakReminder = false }
     mutating func migrateKeywordRules() {
         guard keywordRulesVersion != 1 else { return }
         domains = Array(Set(domains.compactMap { Self.normalizeKeyword($0) })).sorted()
@@ -88,4 +104,30 @@ struct VisitPass {
         self.processID == processID && self.page == page
     }
     mutating func clear() { processID = nil; page = nil }
+}
+
+struct BreakSession: Codable {
+    var deadline: Date?
+    var pausedRemaining: TimeInterval?
+    let duration: TimeInterval
+    init(minutes: Int, now: Date = Date()) {
+        duration = Double(min(480, max(1, minutes))) * 60
+        deadline = now.addingTimeInterval(duration)
+    }
+    var paused: Bool { pausedRemaining != nil }
+    func timeLeft(now: Date = Date()) -> TimeInterval {
+        max(0, pausedRemaining ?? deadline?.timeIntervalSince(now) ?? 0)
+    }
+    mutating func togglePause(now: Date = Date()) {
+        if let pausedRemaining {
+            deadline = now.addingTimeInterval(pausedRemaining)
+            self.pausedRemaining = nil
+        } else {
+            pausedRemaining = timeLeft(now: now)
+            deadline = nil
+        }
+    }
+    mutating func reset(now: Date = Date()) {
+        if paused { pausedRemaining = duration } else { deadline = now.addingTimeInterval(duration) }
+    }
 }

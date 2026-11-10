@@ -13,12 +13,16 @@ struct GuiltyApp: App {
         .defaultSize(width: 1000, height: 780)
         .windowResizability(.contentMinSize)
         MenuBarExtra {
-            Text(model.hasSession ? "Focus time: \(model.clock)" : "Ready for your next session")
+            Text(model.hasBreak ? "Break time: \(model.breakClock)" : model.hasSession ? "Focus time: \(model.clock)" : "Ready for your next session")
             Button("Open Guilty") {
                 NSApp.activate(ignoringOtherApps: true)
                 NSApp.windows.first(where: { $0.title == "Guilty" })?.makeKeyAndOrderFront(nil)
             }
-            if model.hasSession {
+            if model.hasBreak {
+                Button(model.state.breakSession?.paused == true ? "Resume break" : "Pause break") { model.pauseBreak() }
+                Button("Reset break") { model.resetBreak() }
+                Button("End break") { model.endBreak() }
+            } else if model.hasSession {
                 Button(model.paused ? "Resume timer" : "Pause timer") { model.pauseOrResume() }
                 Button("Reset timer") { model.reset() }
                 Button("End timer") { model.end() }
@@ -26,7 +30,7 @@ struct GuiltyApp: App {
             Divider()
             Button("Quit Guilty") { NSApp.terminate(nil) }
         } label: {
-            Label(model.hasSession ? model.clock : "Guilty", systemImage: "timer")
+            Label(model.hasBreak ? model.breakClock : model.hasSession ? model.clock : "Guilty", systemImage: model.hasBreak ? "cup.and.saucer" : "timer")
         }
     }
 }
@@ -36,11 +40,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var model: FocusModel?
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard model?.hasSession == true else { return .terminateNow }
+        guard model?.hasSession == true || model?.hasBreak == true else { return .terminateNow }
         let alert = NSAlert()
-        alert.messageText = "Your focus timer is still running"
-        alert.informativeText = "Quitting stops protection. The timer will resume if you reopen Guilty before it ends."
-        alert.addButton(withTitle: "Keep focusing")
+        alert.messageText = "You still have a timer"
+        alert.informativeText = "Guilty must stay open to block distractions or remind you when a break ends. Your timer is saved if you reopen it."
+        alert.addButton(withTitle: "Keep Guilty open")
         alert.addButton(withTitle: "Quit anyway")
         return alert.runModal() == .alertFirstButtonReturn ? .terminateCancel : .terminateNow
     }
@@ -56,7 +60,8 @@ private let accent = Color(red: 0.77, green: 0.95, blue: 0.39)
 
 struct ContentView: View {
     @ObservedObject var model: FocusModel
-    @State private var showingQuote = false
+    private enum Section { case focus, quotes, relaxation }
+    @State private var section: Section = .focus
     @State private var minutes = 25
     @State private var domain = ""
     @State private var inputError = ""
@@ -65,8 +70,10 @@ struct ContentView: View {
             paper.ignoresSafeArea()
             HStack(spacing: 0) {
                 sidebar
-                if showingQuote {
-                    DailyQuoteView { showingQuote = false }
+                if section == .quotes {
+                    DailyQuoteView { section = .focus }
+                } else if section == .relaxation {
+                    RelaxationView(model: model) { model.returnToFocus(); section = .focus }
                 } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 25) {
@@ -93,6 +100,24 @@ struct ContentView: View {
                 }
                 }
             }
+            if model.state.breakReminder == true {
+                ink.opacity(0.78).ignoresSafeArea()
+                VStack(spacing: 20) {
+                    Image(systemName: "bell.badge.fill").font(.system(size: 44)).foregroundStyle(ink)
+                    Text("Recess is over.").font(.system(size: 36, weight: .bold, design: .serif))
+                    Text("Your break timer is up. Time to come back.")
+                        .font(.title3).multilineTextAlignment(.center)
+                    Text(model.paused ? "Your focus session is waiting right where you left it." : "Ready for your next focus session?")
+                        .foregroundStyle(ink.opacity(0.65)).multilineTextAlignment(.center)
+                    Button(model.paused ? "Resume focus" : "Back to focus") {
+                        model.returnToFocus(); section = .focus
+                    }.buttonStyle(.borderedProminent).tint(ink).controlSize(.large)
+                    Button("Five more minutes") { model.startBreak(5); section = .relaxation }
+                        .buttonStyle(.bordered)
+                    Button("Dismiss") { model.dismissBreakReminder() }.buttonStyle(.plain).font(.caption)
+                }.padding(36).frame(width: 440).background(paper)
+                    .clipShape(RoundedRectangle(cornerRadius: 24)).shadow(radius: 30)
+            }
             if let accusation = model.accusation {
                 ink.opacity(0.78).ignoresSafeArea()
                 VStack(spacing: 20) {
@@ -113,6 +138,7 @@ struct ContentView: View {
         }
         .foregroundStyle(ink).frame(minWidth: 880, minHeight: 660)
         .preferredColorScheme(.light)
+        .onAppear { if model.state.breakReminder == true { model.showWindow() } }
     }
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 30) {
@@ -123,8 +149,9 @@ struct ContentView: View {
             Text("A LITTLE DISCIPLINE.\nA LOT OF POSSIBILITY.")
                 .font(.system(size: 9, weight: .medium, design: .monospaced)).tracking(1).lineSpacing(5).fixedSize(horizontal: false, vertical: true).opacity(0.5)
             VStack(spacing: 8) {
-                sidebarButton("Focus chamber", icon: "timer", selected: !showingQuote) { showingQuote = false }
-                sidebarButton("Quote of the Day", icon: "quote.bubble", selected: showingQuote) { showingQuote = true }
+                sidebarButton("Focus chamber", icon: "timer", selected: section == .focus) { section = .focus }
+                sidebarButton("Relaxation Chamber", icon: "cup.and.saucer", selected: section == .relaxation) { section = .relaxation }
+                sidebarButton("Quote of the Day", icon: "quote.bubble", selected: section == .quotes) { section = .quotes }
             }
             Spacer()
             Image(systemName: "hourglass").font(.system(size: 42, weight: .ultraLight)).foregroundStyle(accent)
@@ -132,13 +159,14 @@ struct ContentView: View {
                 .font(.system(size: 19, design: .serif)).lineSpacing(4).fixedSize(horizontal: false, vertical: true)
             Text("Set a timer. Stay with it.\nWe’ll handle the objections.").font(.system(size: 11)).lineSpacing(4).opacity(0.55)
             Divider().overlay(paper.opacity(0.2))
-            Label(model.hasSession ? "COURT IN SESSION" : "READY WHEN YOU ARE", systemImage: "circle.fill")
+            Label(model.hasBreak ? "COURT IN RECESS" : model.hasSession ? "COURT IN SESSION" : "READY WHEN YOU ARE", systemImage: "circle.fill")
                 .font(.system(size: 9, weight: .medium, design: .monospaced)).foregroundStyle(accent)
         }.padding(24).frame(width: 210).frame(maxHeight: .infinity).background(ink).foregroundStyle(paper)
     }
     private func sidebarButton(_ title: String, icon: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: icon).font(.system(size: 12, weight: .semibold))
+                .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 .padding(12).frame(maxWidth: .infinity, alignment: .leading)
                 .background(selected ? accent.opacity(0.13) : .clear)
                 .foregroundStyle(selected ? accent : paper.opacity(0.7))
@@ -159,7 +187,7 @@ struct ContentView: View {
                 .accessibilityLabel("Time remaining").accessibilityValue(model.hasSession ? model.clock : "\(minutes) minutes")
             if model.hasSession {
                 ProgressView(value: max(0, min(1, 1 - Double(model.remaining) / model.state.duration))).tint(ink)
-                Text(model.paused ? "Timer and blocking are paused." : "You made a promise to yourself. Keep going.").font(.system(size: 12)).opacity(0.65)
+                Text(model.hasBreak ? "Relaxation break in progress. Resume ends your break." : model.paused ? "Timer and blocking are paused." : "You made a promise to yourself. Keep going.").font(.system(size: 12)).opacity(0.65)
                 HStack(spacing: 16) {
                     Button(model.paused ? "Resume" : "Pause") { model.pauseOrResume() }
                     Button("Reset") { model.reset() }

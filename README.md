@@ -68,3 +68,11 @@ Choose **Quote of the Day** in the left sidebar for a short movie quote, its fil
 The quote follows the Gregorian date in your Mac’s current time zone. Reopening the app on the same date keeps the same quote. The open page checks the date every 30 seconds, so the new quote appears within 30 seconds after midnight, or when the app wakes. Changing time zones or setting the clock backward can revisit an earlier date’s quote. Browsing this section does not pause focus protection.
 
 The catalog and source links are in `Sources/Guilty/MovieQuoteCatalog.swift`. Keep the catalog order stable when editing it, because that order defines the rotation. Tests cover catalog uniqueness, a full cycle with a leap day, local midnight, and daylight-saving changes.
+
+## Relaxation Chamber
+
+Choose **Relaxation Chamber** in the left sidebar, pick 5, 10, 15, or 30 minutes (or a custom 1–480 minutes), and start a break. All apps and websites are allowed. Starting a break pauses an existing focus session and saves its remaining time. Focus resumes only when you choose **Return to focus** or **Resume focus**; starting a new focus timer also ends the break.
+
+The break has pause/resume, reset, and end controls, also available in the menu bar. At the end, Guilty plays a sound and brings its window forward with a **Recess is over** reminder. Choose to return to focus, take five more minutes, or dismiss the reminder. Ending a break early leaves focus paused until you choose to resume it.
+
+Keep Guilty running to receive the reminder. Closing its window keeps it in the menu bar. If the Mac sleeps, the saved end time is checked when it wakes. If Guilty was quit, an overdue break shows its reminder when reopened. Breaks and pending reminders are stored locally alongside the focus session.

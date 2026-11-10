@@ -12,6 +12,7 @@ struct Accusation {
 final class FocusModel: ObservableObject {
     @Published var state: FocusState
     @Published var remaining = 0
+    @Published var breakRemaining = 0
     @Published var accusation: Accusation?
     @Published var browserStatus = "Browser checks begin when you open a supported browser."
     @Published var notice = ""
@@ -40,7 +41,9 @@ final class FocusModel: ObservableObject {
         }
         save(); tick()
     }
-    var active: Bool { state.active }
+    var active: Bool { state.active && state.breakSession == nil }
+    var hasBreak: Bool { state.breakSession != nil }
+    var breakClock: String { String(format: "%02d:%02d", breakRemaining / 60, breakRemaining % 60) }
     var hasSession: Bool { state.hasSession }
     var paused: Bool { state.paused }
     var clock: String { String(format: "%02d:%02d", remaining / 60, remaining % 60) }
@@ -50,14 +53,37 @@ final class FocusModel: ObservableObject {
             try JSONEncoder().encode(state).write(to: storage, options: .atomic)
         } catch { notice = "Could not save this session: \(error.localizedDescription)" }
     }
-    func start(_ minutes: Int) { visitPass.clear(); state.start(minutes: minutes); notice = ""; save(); tick() }
+    func start(_ minutes: Int) { state.cancelBreak(); visitPass.clear(); state.start(minutes: minutes); notice = ""; save(); tick() }
     func pauseOrResume() {
-        if paused { state.resume() } else { state.pause() }
+        if paused { state.cancelBreak(); state.resume() } else { state.pause() }
         accusation = nil; visitPass.clear(); save(); tick()
     }
     func reset() { state.reset(); accusation = nil; visitPass.clear(); save(); tick() }
     func end() { state.finish(); accusation = nil; visitPass.clear(); notice = "Session ended. Start again when you are ready."; save(); tick() }
+    func startBreak(_ minutes: Int) {
+        state.startBreak(minutes: minutes)
+        accusation = nil; visitPass.clear(); notice = ""; save(); tick()
+    }
+    func pauseBreak() { state.breakSession?.togglePause(); save(); tick() }
+    func resetBreak() { state.breakSession?.reset(); save(); tick() }
+    func endBreak() {
+        state.cancelBreak(); save(); tick()
+    }
+    func returnToFocus() {
+        state.cancelBreak()
+        if paused { state.resume() }
+        save(); tick()
+    }
+    func dismissBreakReminder() { state.breakReminder = false; save() }
+    func showWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.windows.first(where: { $0.identifier?.rawValue == "main" || $0.title == "Guilty" })?.makeKeyAndOrderFront(nil)
+    }
     func tick() {
+        breakRemaining = Int(ceil(state.breakSession?.timeLeft() ?? 0))
+        if state.completeBreakIfNeeded() {
+            save(); NSSound(named: "Glass")?.play(); showWindow()
+        }
         remaining = Int(ceil(state.timeLeft()))
         if state.deadline != nil && remaining == 0 {
             state.finish(); accusation = nil; visitPass.clear(); save(); notice = "Case closed. Your focus time is complete."; NSSound(named: "Glass")?.play()
