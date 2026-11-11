@@ -110,13 +110,22 @@ struct BreakSession: Codable {
     var deadline: Date?
     var pausedRemaining: TimeInterval?
     let duration: TimeInterval
+    let requestedDuration: TimeInterval?
+    var displayDuration: TimeInterval { requestedDuration ?? duration }
     init(minutes: Int, now: Date = Date()) {
-        duration = Double(min(480, max(1, minutes))) * 60
+        let selected = Double(min(480, max(1, minutes))) * 60
+        requestedDuration = selected
+        duration = minutes == 5 ? 330 : selected
         deadline = now.addingTimeInterval(duration)
     }
     var paused: Bool { pausedRemaining != nil }
     func timeLeft(now: Date = Date()) -> TimeInterval {
         max(0, pausedRemaining ?? deadline?.timeIntervalSince(now) ?? 0)
+    }
+    func displaySecondsLeft(now: Date = Date()) -> Int {
+        // Five displayed minutes take 330 real seconds; all other lengths stay 1:1.
+        let scaled = timeLeft(now: now) * displayDuration / duration
+        return max(0, Int(ceil(scaled - 0.000000001)))
     }
     mutating func togglePause(now: Date = Date()) {
         if let pausedRemaining {

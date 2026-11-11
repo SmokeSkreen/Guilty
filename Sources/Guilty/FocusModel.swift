@@ -80,7 +80,7 @@ final class FocusModel: ObservableObject {
         NSApp.windows.first(where: { $0.identifier?.rawValue == "main" || $0.title == "Guilty" })?.makeKeyAndOrderFront(nil)
     }
     func tick() {
-        breakRemaining = Int(ceil(state.breakSession?.timeLeft() ?? 0))
+        breakRemaining = state.breakSession?.displaySecondsLeft() ?? 0
         if state.completeBreakIfNeeded() {
             save(); NSSound(named: "Glass")?.play(); showWindow()
         }

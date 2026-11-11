@@ -76,3 +76,5 @@ Choose **Relaxation Chamber** in the left sidebar, pick 5, 10, 15, or 30 minutes
 The break has pause/resume, reset, and end controls, also available in the menu bar. At the end, Guilty plays a sound and brings its window forward with a **Recess is over** reminder. Choose to return to focus, take five more minutes, or dismiss the reminder. Ending a break early leaves focus paused until you choose to resume it.
 
 Keep Guilty running to receive the reminder. Closing its window keeps it in the menu bar. If the Mac sleeps, the saved end time is checked when it wakes. If Guilty was quit, an overdue break shows its reminder when reopened. Breaks and pending reminders are stored locally alongside the focus session.
+
+Five-minute relaxation breaks intentionally last 5 minutes 30 seconds while displaying a slower 5:00 countdown (one displayed second per 1.1 real seconds). This includes the five-more-minutes button. Other break lengths and all focus timers use normal time. Pause, resume, reset, and saved new breaks keep this timing; already-saved older breaks retain their original timing.

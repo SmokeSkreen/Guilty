@@ -28,7 +28,7 @@ struct RelaxationView: View {
                         .font(.system(size: 80, weight: .light, design: .monospaced)).monospacedDigit()
                         .accessibilityLabel("Relaxation time").accessibilityValue(model.hasBreak ? model.breakClock : "\(minutes) minutes")
                     if let session = model.state.breakSession {
-                        ProgressView(value: max(0, min(1, 1 - Double(model.breakRemaining) / session.duration))).tint(ink)
+                        ProgressView(value: max(0, min(1, 1 - Double(model.breakRemaining) / session.displayDuration))).tint(ink)
                         Text("No guilty verdicts here. Enjoy your break.").font(.system(size: 14))
                         HStack(spacing: 16) {
                             Button(session.paused ? "Resume break" : "Pause break") { model.pauseBreak() }
