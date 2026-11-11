@@ -59,6 +59,7 @@ private let paper = Color(red: 0.96, green: 0.95, blue: 0.91)
 private let accent = Color(red: 0.77, green: 0.95, blue: 0.39)
 
 struct ContentView: View {
+    private static let brandIcon = NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath)
     @ObservedObject var model: FocusModel
     private enum Section { case focus, quotes, relaxation }
     @State private var section: Section = .focus
@@ -121,7 +122,7 @@ struct ContentView: View {
             if let accusation = model.accusation {
                 ink.opacity(0.78).ignoresSafeArea()
                 VStack(spacing: 20) {
-                    Image(systemName: "exclamationmark.shield.fill").font(.system(size: 48)).foregroundStyle(ink)
+                    CourtroomCat(mood: .judging).frame(width: 190, height: 159)
                     Text("CAUGHT IN THE ACT").font(.system(size: 11, weight: .bold, design: .monospaced)).tracking(3)
                     Text("You R Found Guilty").font(.system(size: 38, weight: .bold, design: .serif))
                     Text("\(accusation.name) can wait.\nYou have \(model.clock) left to focus.")
@@ -143,7 +144,10 @@ struct ContentView: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 30) {
             HStack(spacing: 8) {
-                Image(systemName: "checkerboard.shield").font(.title2)
+                Image(nsImage: Self.brandIcon)
+                    .resizable().interpolation(.high).scaledToFit()
+                    .frame(width: 32, height: 32)
+                    .accessibilityLabel("Guilty app icon")
                 Text("guilty.").font(.system(size: 31, weight: .bold, design: .serif))
             }
             Text("A LITTLE DISCIPLINE.\nA LOT OF POSSIBILITY.")
@@ -154,10 +158,13 @@ struct ContentView: View {
                 sidebarButton("Quote of the Day", icon: "quote.bubble", selected: section == .quotes) { section = .quotes }
             }
             Spacer()
-            Image(systemName: "hourglass").font(.system(size: 42, weight: .ultraLight)).foregroundStyle(accent)
-            Text("Your distractions\ncan take a number.")
-                .font(.system(size: 19, design: .serif)).lineSpacing(4).fixedSize(horizontal: false, vertical: true)
-            Text("Set a timer. Stay with it.\nWe’ll handle the objections.").font(.system(size: 11)).lineSpacing(4).opacity(0.55)
+            VStack(spacing: 6) {
+                CourtroomCat(mood: model.catMood)
+                    .frame(height: 142)
+                Text("JUDGE WHISKERS").font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(1)
+                Text(model.catCaption)
+                    .font(.system(size: 11)).opacity(0.6)
+            }.frame(maxWidth: .infinity)
             Divider().overlay(paper.opacity(0.2))
             Label(model.hasBreak ? "COURT IN RECESS" : model.hasSession ? "COURT IN SESSION" : "READY WHEN YOU ARE", systemImage: "circle.fill")
                 .font(.system(size: 9, weight: .medium, design: .monospaced)).foregroundStyle(accent)

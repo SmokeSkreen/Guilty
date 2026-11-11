@@ -16,6 +16,7 @@ final class FocusModel: ObservableObject {
     @Published var accusation: Accusation?
     @Published var browserStatus = "Browser checks begin when you open a supported browser."
     @Published var notice = ""
+    @Published private(set) var completedFocus = false
     private var timer: Timer?
     private var checking = false
     private var visitPass = VisitPass()
@@ -41,6 +42,23 @@ final class FocusModel: ObservableObject {
         }
         save(); tick()
     }
+    var catMood: CourtroomCat.Mood {
+        if accusation != nil { return .judging }
+        if state.breakReminder == true { return .calling }
+        if hasBreak { return .sleeping }
+        if completedFocus { return .celebrating }
+        return active ? .watching : .idle
+    }
+    var catCaption: String {
+        switch catMood {
+        case .judging: return "Really? The court saw that."
+        case .calling: return "Recess is over. Back to it!"
+        case .sleeping: return "Court adjourned. Nap time."
+        case .celebrating: return "Case closed. You did it!"
+        case .watching: return "The court is watching you."
+        case .idle: return paused ? "Take a breath. I’ll wait." : "Ready when you are."
+        }
+    }
     var active: Bool { state.active && state.breakSession == nil }
     var hasBreak: Bool { state.breakSession != nil }
     var breakClock: String { String(format: "%02d:%02d", breakRemaining / 60, breakRemaining % 60) }
@@ -53,14 +71,15 @@ final class FocusModel: ObservableObject {
             try JSONEncoder().encode(state).write(to: storage, options: .atomic)
         } catch { notice = "Could not save this session: \(error.localizedDescription)" }
     }
-    func start(_ minutes: Int) { state.cancelBreak(); visitPass.clear(); state.start(minutes: minutes); notice = ""; save(); tick() }
+    func start(_ minutes: Int) { completedFocus = false; state.cancelBreak(); visitPass.clear(); state.start(minutes: minutes); notice = ""; save(); tick() }
     func pauseOrResume() {
         if paused { state.cancelBreak(); state.resume() } else { state.pause() }
         accusation = nil; visitPass.clear(); save(); tick()
     }
     func reset() { state.reset(); accusation = nil; visitPass.clear(); save(); tick() }
-    func end() { state.finish(); accusation = nil; visitPass.clear(); notice = "Session ended. Start again when you are ready."; save(); tick() }
+    func end() { completedFocus = false; state.finish(); accusation = nil; visitPass.clear(); notice = "Session ended. Start again when you are ready."; save(); tick() }
     func startBreak(_ minutes: Int) {
+        completedFocus = false
         state.startBreak(minutes: minutes)
         accusation = nil; visitPass.clear(); notice = ""; save(); tick()
     }
@@ -70,6 +89,7 @@ final class FocusModel: ObservableObject {
         state.cancelBreak(); save(); tick()
     }
     func returnToFocus() {
+        completedFocus = false
         state.cancelBreak()
         if paused { state.resume() }
         save(); tick()
@@ -86,6 +106,7 @@ final class FocusModel: ObservableObject {
         }
         remaining = Int(ceil(state.timeLeft()))
         if state.deadline != nil && remaining == 0 {
+            completedFocus = true
             state.finish(); accusation = nil; visitPass.clear(); save(); notice = "Case closed. Your focus time is complete."; NSSound(named: "Glass")?.play()
         }
         visitPass.observe(processID: NSWorkspace.shared.frontmostApplication?.processIdentifier)
