@@ -4,6 +4,7 @@ import AppKit
 @main
 struct GuiltyApp: App {
     @StateObject private var model = FocusModel()
+    @AppStorage(AIUseReminder.enabledKey) private var aiReminderEnabled = true
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     var body: some Scene {
         Window("Guilty", id: "main") {
@@ -28,6 +29,10 @@ struct GuiltyApp: App {
                 Button("End timer") { model.end() }
             }
             Divider()
+            Toggle("AI use reminders", isOn: $aiReminderEnabled)
+                .onChange(of: aiReminderEnabled) { enabled in
+                    if !enabled { model.dismissAIUseReminder() }
+                }
             Button("Quit Guilty") { NSApp.terminate(nil) }
         } label: {
             Label(model.hasBreak ? model.breakClock : model.hasSession ? model.clock : "Guilty", systemImage: model.hasBreak ? "cup.and.saucer" : "timer")
@@ -100,6 +105,23 @@ struct ContentView: View {
                     }.padding(32)
                 }
                 }
+            }
+            if model.showFocusCompletion {
+                ink.opacity(0.78).ignoresSafeArea()
+                VStack(spacing: 20) {
+                    CourtroomCat(mood: .celebrating).frame(width: 180, height: 151)
+                    Text("Case closed!").font(.system(size: 36, weight: .bold, design: .serif))
+                    Text("Your focus session is complete.").font(.title3)
+                    Text("You put in the time. Judge Whiskers approves.")
+                        .foregroundStyle(ink.opacity(0.65)).multilineTextAlignment(.center)
+                    Button("Take a break") {
+                        model.dismissFocusCompletion(); section = .relaxation
+                    }.buttonStyle(.borderedProminent).tint(ink).controlSize(.large)
+                    Button("Done") {
+                        model.dismissFocusCompletion(); section = .focus
+                    }.buttonStyle(.bordered).controlSize(.large)
+                }.padding(36).frame(width: 440).background(paper)
+                    .clipShape(RoundedRectangle(cornerRadius: 24)).shadow(radius: 30)
             }
             if model.state.breakReminder == true {
                 ink.opacity(0.78).ignoresSafeArea()

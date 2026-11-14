@@ -5,16 +5,25 @@ final class DailyQuoteTests: XCTestCase {
     private let singapore = TimeZone(identifier: "Asia/Singapore")!
     private func date(_ value: String) -> Date { ISO8601DateFormatter().date(from: value)! }
 
-    func testCatalogHasMoreThanThreeMonthsOfUniqueQuotes() {
+    func testCatalogHasAFullLeapYearOfUniqueQuotes() {
         let quotes = MovieQuoteCatalog.all
-        XCTAssertGreaterThanOrEqual(quotes.count, 93)
+        XCTAssertEqual(quotes.count, 366)
         XCTAssertEqual(Set(quotes.map(\.id)).count, quotes.count)
         XCTAssertEqual(Set(quotes.map { $0.text.lowercased() }).count, quotes.count)
+        let normalized = quotes.map { quote in
+            quote.text.lowercased().filter { $0.isLetter || $0.isNumber }
+        }
+        XCTAssertEqual(Set(normalized).count, quotes.count)
         for quote in quotes {
             XCTAssertFalse(quote.movie.isEmpty)
             XCTAssertFalse(quote.text.isEmpty)
             XCTAssertEqual(URL(string: quote.source)?.scheme, "https")
         }
+    }
+    func testRequestedNolanFilmsAreIncluded() {
+        let films = Set(MovieQuoteCatalog.all.map(\.movie))
+        XCTAssertTrue(films.contains("Interstellar"))
+        XCTAssertTrue(films.contains("Inception"))
     }
     func testSameLocalDayKeepsSameQuoteAcrossReopens() {
         let morning = date("2026-11-09T00:00:00Z")

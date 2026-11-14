@@ -23,7 +23,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIconFile</key><string>Guilty.icns</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
-<key>NSAppleEventsUsageDescription</key><string>Guilty reads the active browser tab address to spot blocked entertainment websites during your focus timer.</string>
+<key>NSAppleEventsUsageDescription</key><string>Guilty reads the active browser tab address to check blocked websites during focus sessions and recognize AI websites for occasional reminders.</string>
 </dict></plist>
 PLIST
 xattr -d com.apple.FinderInfo "$APP" 2>/dev/null || true

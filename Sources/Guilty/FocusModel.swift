@@ -17,8 +17,11 @@ final class FocusModel: ObservableObject {
     @Published var browserStatus = "Browser checks begin when you open a supported browser."
     @Published var notice = ""
     @Published private(set) var completedFocus = false
+    @Published private(set) var showFocusCompletion = false
     private var timer: Timer?
     private var checking = false
+    private let aiReminder = AIUseReminder()
+    private var nextReminderBrowserCheck = Date.distantPast
     private var visitPass = VisitPass()
     private var activationObserver: NSObjectProtocol?
     private var activationGeneration = 0
@@ -71,15 +74,16 @@ final class FocusModel: ObservableObject {
             try JSONEncoder().encode(state).write(to: storage, options: .atomic)
         } catch { notice = "Could not save this session: \(error.localizedDescription)" }
     }
-    func start(_ minutes: Int) { completedFocus = false; state.cancelBreak(); visitPass.clear(); state.start(minutes: minutes); notice = ""; save(); tick() }
+    func start(_ minutes: Int) { completedFocus = false; showFocusCompletion = false; state.cancelBreak(); visitPass.clear(); state.start(minutes: minutes); notice = ""; save(); tick() }
     func pauseOrResume() {
         if paused { state.cancelBreak(); state.resume() } else { state.pause() }
         accusation = nil; visitPass.clear(); save(); tick()
     }
     func reset() { state.reset(); accusation = nil; visitPass.clear(); save(); tick() }
-    func end() { completedFocus = false; state.finish(); accusation = nil; visitPass.clear(); notice = "Session ended. Start again when you are ready."; save(); tick() }
+    func end() { completedFocus = false; showFocusCompletion = false; state.finish(); accusation = nil; visitPass.clear(); notice = "Session ended. Start again when you are ready."; save(); tick() }
     func startBreak(_ minutes: Int) {
         completedFocus = false
+        showFocusCompletion = false
         state.startBreak(minutes: minutes)
         accusation = nil; visitPass.clear(); notice = ""; save(); tick()
     }
@@ -90,14 +94,20 @@ final class FocusModel: ObservableObject {
     }
     func returnToFocus() {
         completedFocus = false
+        showFocusCompletion = false
         state.cancelBreak()
         if paused { state.resume() }
         save(); tick()
     }
     func dismissBreakReminder() { state.breakReminder = false; save() }
+    func dismissFocusCompletion() { showFocusCompletion = false }
     func showWindow() {
+        NSApp.unhide(nil)
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.windows.first(where: { $0.identifier?.rawValue == "main" || $0.title == "Guilty" })?.makeKeyAndOrderFront(nil)
+        if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == "main" || $0.title == "Guilty" }) {
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            window.makeKeyAndOrderFront(nil)
+        }
     }
     func tick() {
         breakRemaining = state.breakSession?.displaySecondsLeft() ?? 0
@@ -107,21 +117,29 @@ final class FocusModel: ObservableObject {
         remaining = Int(ceil(state.timeLeft()))
         if state.deadline != nil && remaining == 0 {
             completedFocus = true
+            showFocusCompletion = true
             state.finish(); accusation = nil; visitPass.clear(); save(); notice = "Case closed. Your focus time is complete."; NSSound(named: "Glass")?.play()
+            showWindow()
         }
         visitPass.observe(processID: NSWorkspace.shared.frontmostApplication?.processIdentifier)
-        guard active, let app = NSWorkspace.shared.frontmostApplication,
+        guard let app = NSWorkspace.shared.frontmostApplication,
               let id = app.bundleIdentifier, id != Bundle.main.bundleIdentifier else { return }
-        if state.apps.contains(where: { $0.id == id }) {
+        if active && state.apps.contains(where: { $0.id == id }) {
             if !visitPass.allows(processID: app.processIdentifier) {
                 accuse(key: "app:" + id, name: app.localizedName ?? id, app: app)
             }
-        } else if browsers.contains(id) && !checking {
+        } else if aiReminder.isDue && AIUseDetection.appIDs.contains(id) {
+            aiReminder.show()
+        } else if browsers.contains(id), !checking,
+                  active || (aiReminder.isDue && Date() >= nextReminderBrowserCheck) {
+            nextReminderBrowserCheck = Date().addingTimeInterval(2)
             checkBrowser(app, id: id)
-        } else if !browsers.contains(id), id.lowercased().contains("browser") || id == "org.mozilla.firefox" {
+        } else if active, !browsers.contains(id), id.lowercased().contains("browser") || id == "org.mozilla.firefox" {
             browserStatus = "This browser is not supported. Add it to blocked apps during focus time."
         }
     }
+    func dismissAIUseReminder() { aiReminder.dismiss() }
+
     func accuse(key: String, name: String, app: NSRunningApplication, page: String? = nil) {
         guard active else { return }
         app.hide()
@@ -174,14 +192,25 @@ final class FocusModel: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.checking = false
-                guard self.active, self.state.deadline == session, self.activationGeneration == generation else { return }
-                self.browserStatus = failed ? "Cannot read \(app.localizedName ?? "browser"). Allow Guilty in System Settings → Privacy & Security → Automation, then reopen the browser." : "Checking \(app.localizedName ?? "browser") · website protection is working."
-                guard !failed, NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier,
-                      let result else { self.visitPass.clear(); return }
-                let page = identity + ":" + result
-                self.visitPass.observe(processID: app.processIdentifier, page: page, checkingPage: true)
-                guard let domain = self.state.blockedKeyword(for: result), !self.visitPass.allows(processID: app.processIdentifier, page: page) else { return }
-                self.accuse(key: "site:" + domain, name: domain, app: app, page: page)
+                guard self.activationGeneration == generation,
+                      NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier else { return }
+                self.browserStatus = failed ? "Cannot read \(app.localizedName ?? "browser"). Allow Guilty in System Settings → Privacy & Security → Automation, then reopen the browser." : "Checking \(app.localizedName ?? "browser") · website checks are working."
+                guard !failed, let result else {
+                    self.nextReminderBrowserCheck = Date().addingTimeInterval(60)
+                    if self.active && self.state.deadline == session { self.visitPass.clear() }
+                    return
+                }
+
+                if self.active && self.state.deadline == session {
+                    let page = identity + ":" + result
+                    self.visitPass.observe(processID: app.processIdentifier, page: page, checkingPage: true)
+                    if let domain = self.state.blockedKeyword(for: result),
+                       !self.visitPass.allows(processID: app.processIdentifier, page: page) {
+                        self.accuse(key: "site:" + domain, name: domain, app: app, page: page)
+                        return
+                    }
+                }
+                if AIUseDetection.matchesWebsite(result) { self.aiReminder.show() }
             }
         }
     }

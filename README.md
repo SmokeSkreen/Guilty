@@ -41,6 +41,12 @@ Closing the window keeps Guilty running in the menu bar. Quitting asks for confi
 
 This is a self-control tool, not an unbreakable system restriction. A page may load briefly before it is hidden. Quitting or force-quitting Guilty stops enforcement. Denied browser permissions prevent website checks; the app reports this in its status. A network filter or browser extension would be needed to stop requests before pages load.
 
+## AI use reminders
+
+Guilty shows a small reminder when you use a recognized AI app or website, even without a focus timer. It appears at most once every 10 minutes across all recognized tools and dismisses itself after 12 seconds. Turn it off with **AI use reminders** in the Guilty menu bar menu.
+
+Keep Guilty running in the background. Website detection uses the active tab address in supported browsers and needs the same macOS Automation permission as website blocking.
+
 ## Privacy
 
 No server, analytics, or network service. URLs are checked in memory and are not saved. Lists, the timer deadline, and paused time are stored locally in `~/Library/Application Support/Guilty/session.json`.
@@ -63,7 +69,7 @@ The app includes a shield-and-gavel icon for Finder, the Dock, and Spotlight. Th
 
 ## Quote of the Day
 
-Choose **Quote of the Day** in the left sidebar for a short movie quote, its film and year, and a link to its checked source. The built-in library contains 93 distinct excerpts, so the same quote returns only after 93 days (longer than three calendar months). It works offline; opening a source link needs internet access. It rotates a curated library rather than searching the web every day.
+Choose **Quote of the Day** in the left sidebar for a short movie quote, its film and year, and a link to its checked source. The built-in library contains 366 distinct excerpts, enough for a full year including a leap year without repeats. The cycle restarts after 366 days, rather than resetting on January 1. It works offline; opening a source link needs internet access. It rotates a curated library rather than searching the web every day.
 
 The quote follows the Gregorian date in your Mac’s current time zone. Reopening the app on the same date keeps the same quote. The open page checks the date every 30 seconds, so the new quote appears within 30 seconds after midnight, or when the app wakes. Changing time zones or setting the clock backward can revisit an earlier date’s quote. Browsing this section does not pause focus protection.
 
@@ -78,3 +84,5 @@ The break has pause/resume, reset, and end controls, also available in the menu 
 Keep Guilty running to receive the reminder. Closing its window keeps it in the menu bar. If the Mac sleeps, the saved end time is checked when it wakes. If Guilty was quit, an overdue break shows its reminder when reopened. Breaks and pending reminders are stored locally alongside the focus session.
 
 Five-minute relaxation breaks intentionally last 5 minutes 30 seconds while displaying a slower 5:00 countdown (one displayed second per 1.1 real seconds). This includes the five-more-minutes button. Other break lengths and all focus timers use normal time. Pause, resume, reset, and saved new breaks keep this timing; already-saved older breaks retain their original timing.
+
+When a focus countdown reaches zero, Guilty keeps its completion sound and brings its main window to the front, restoring it if minimized. A **Case closed!** message appears above whichever section was open, with **Take a break** and **Done** buttons. Ending a session early does not show this countdown-complete reminder.
